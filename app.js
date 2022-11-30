@@ -34,10 +34,10 @@ convertTodoDbObjectToResponseObject = (dbObject) => {
   return {
     id: dbObject.id,
     todo: dbObject.todo,
-    category: dbObject.category,
     priority: dbObject.priority,
     status: dbObject.status,
-    due_date: dbObject.due_date,
+    category: dbObject.category,
+    dueDate: dbObject.due_date,
   };
 };
 
@@ -77,7 +77,7 @@ const hasStatusProperty = (requestQuery) => {
 };
 
 const hasSearchProperty = (requestQuery) => {
-  return requestQuery.search !== undefined;
+  return requestQuery.search_q !== undefined;
 };
 
 const hasCategoryAndStatusProperty = (requestQuery) => {
@@ -90,12 +90,17 @@ const hasCategoryProperty = (requestQuery) => {
   return requestQuery.category !== undefined;
 };
 
+const hasTodoProperty = (requestQuery) => {
+  return requestQuery.todo !== undefined;
+};
+
 const hasCategoryAndPriorityProperty = (requestQuery) => {
   return (
     requestQuery.category !== undefined && requestQuery.priority !== undefined
   );
 };
 
+// first api
 app.get("/todos/", async (request, response) => {
   let data = null;
   let getTodosQuery = "";
@@ -103,7 +108,7 @@ app.get("/todos/", async (request, response) => {
 
   switch (true) {
     case hasPriorityAndStatusProperties(request.query):
-      getTodoQuery = `
+      getTodosQuery = `
           select * from todo where priority = '${priority}' and status = '${status}';`;
       break;
     case hasPriorityProperty(request.query):
@@ -114,14 +119,6 @@ app.get("/todos/", async (request, response) => {
       getTodosQuery = `
         select * from todo where status = '${status}';`;
       break;
-    case hasSearchProperty(request.query):
-      getTodosQuery = `
-        select * from todo where todo contains '${search_q}';`;
-      break;
-    case hasCategoryAndStatusProperty(request.query):
-      getTodosQuery = `
-        select * from todo where category = '${category}' and status = '${status}';`;
-      break;
     case hasCategoryProperty(request.query):
       getTodosQuery = `
         select * from todo where category = '${category}';`;
@@ -130,11 +127,105 @@ app.get("/todos/", async (request, response) => {
       getTodosQuery = `
         select * from todo where category = '${category}' and priority = '${priority}';`;
       break;
+    case hasSearchProperty(request.query):
+      getTodosQuery = `
+        select * from todo where todo LIKE '%${search_q}%';`;
+      break;
   }
   data = await db.all(getTodosQuery);
   response.send(
     data.map((eachState) => convertTodoDbObjectToResponseObject(eachState))
   );
+});
+
+// second api
+app.get("/todos/:todoId/", async (request, response) => {
+  const { todoId } = request.params;
+
+  const getQuery = `
+  select * from todo where id = ${todoId};`;
+
+  const data = await db.get(getQuery);
+  response.send(convertTodoDbObjectToResponseObject(data));
+});
+
+// third api
+app.get("/agenda/", async (request, response) => {
+  const { dueDate } = request.query;
+
+  const getTodosQuery = `
+  select * from todo where due_date = '${dueDate}';`;
+
+  const date = await db.all(getTodosQuery);
+  response.send(convertTodoDbObjectToResponseObject(date));
+});
+
+// fourth api
+
+app.post("/todos/", async (request, response) => {
+  const { id, todo, priority, status, category, dueDate } = request.body;
+
+  const addTodosQuery = `
+  INSERT INTO
+    todo (id, todo, priority, status, category, due_date)
+  VALUES
+    (${id}, '${todo}', '${priority}', '${status}', '${category}','${dueDate}');`;
+
+  await db.run(addTodosQuery);
+  response.send("Todo Successfully Added");
+});
+
+// fifth api
+
+app.put("/todos/:todoId/", async (request, response) => {
+  let putData = null;
+  let putTodosQuery = "";
+  const { todoId } = request.params;
+  const { status, todo, priority, category, dueDate } = request.body;
+  switch (true) {
+    case status !== undefined:
+      putTodosQuery = `
+        update todo set status = '${status}' where id = ${todoId};`;
+      putData = await db.run(putTodosQuery);
+      response.send("Status Updated");
+      break;
+    case todo !== undefined:
+      putTodosQuery = `
+            update todo set todo = '${todo}' where id = ${todoId};`;
+      putData = await db.run(putTodosQuery);
+      response.send("Todo Updated");
+      break;
+    case priority !== undefined:
+      putTodosQuery = `
+            update todo set priority = '${priority}' where id = ${todoId};`;
+      putData = await db.run(putTodosQuery);
+      response.send("Priority Updated");
+      break;
+    case category !== undefined:
+      putTodosQuery = `
+            update todo set priority = '${priority}' where id = ${todoId};`;
+      putData = await db.run(putTodosQuery);
+      response.send("Category Updated");
+      break;
+    case dueDate !== undefined:
+      putTodosQuery = `
+            update todo set due_date = '${dueDate}' where id = ${todoId};`;
+      putData = await db.run(putTodosQuery);
+      response.send("Due Date Updated");
+      break;
+  }
+});
+
+// delete api
+
+app.delete("/todos/:todoId/", async (request, response) => {
+  const { todoId } = request.params;
+
+  const deleteQuery = `
+    delete from todo where id = ${todoId};`;
+
+  await db.run(deleteQuery);
+  response.send("Todo Deleted");
 });
 
 module.exports = app;
