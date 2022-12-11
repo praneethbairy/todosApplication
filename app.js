@@ -175,28 +175,18 @@ app.get("/todos/:todoId/", async (request, response) => {
 
 // third api
 app.get("/agenda/", async (request, response) => {
-  const { dueDate } = request.query;
-  if (dueDate === undefined) {
+  const { date } = request.query;
+
+  try {
+    const dueDate = format(new Date(date), "yyyy-MM-dd");
+    const getTodosQuery = `select * from todo where due_date = '${dueDate}';`;
+
+    const todosList = await db.all(getTodosQuery);
+    const newTodoList = snakeToCamel(todosList);
+    response.send(newTodoList);
+  } catch (error) {
     response.status(400);
     response.send("Invalid Due Date");
-  } else {
-    const isDateValid = isValid(new Date(dueDate));
-    if (isDateValid) {
-      const formatDate = format(new Date(dueDate), "YYYY-MM-dd");
-      const getTodosQuery = `
-        select 
-            id,todo,priority,status,category, due_date as dueDate
-        from 
-            todo 
-        where 
-            due_date = '${formatDate}';`;
-
-      const date = await db.all(getTodosQuery);
-      response.send(date);
-    } else {
-      response.status(400);
-      response.send("Invalid Due Date");
-    }
   }
 });
 
