@@ -31,6 +31,22 @@ const initializationDBAndServer = async () => {
 
 initializationDBAndServer();
 
+const snakeToCamel = (todosList) => {
+  let newTodosList = [];
+  for (let eachTodo of todosList) {
+    let newObj = {
+      id: eachTodo.id,
+      todo: eachTodo.todo,
+      priority: eachTodo.priority,
+      status: eachTodo.status,
+      category: eachTodo.category,
+      dueDate: eachTodo.due_date,
+    };
+    newTodosList.push(newObj);
+  }
+  return newTodosList;
+};
+
 convertTodoDbObjectToResponseObject = (dbObject) => {
   return {
     id: dbObject.id,
@@ -105,19 +121,26 @@ const statusArray = ["TO DO", "IN PROGRESS", "DONE"];
 const categoryArray = ["WORK", "HOME", "LEARNING"];
 // first api
 app.get("/todos/", async (request, response) => {
-  let data = null;
   let getTodosQuery = "";
+  let data = null;
+  let newTodo = null;
   const { search_q = "", priority, status, category } = request.query;
 
   switch (true) {
     case hasPriorityAndStatusProperties(request.query):
       getTodosQuery = `
           select * from todo where priority = '${priority}' and status = '${status}';`;
+      data = await db.all(getTodosQuery);
+      newTodo = snakeToCamel(data);
+      response.send(newTodo);
       break;
     case hasPriorityProperty(request.query):
       if (priorityArray.includes(priority)) {
         getTodosQuery = `
           select * from todo where priority = '${priority}';`;
+        data = await db.all(getTodosQuery);
+        newTodo = snakeToCamel(data);
+        response.send(newTodo);
         break;
       } else {
         response.status(400);
@@ -129,6 +152,9 @@ app.get("/todos/", async (request, response) => {
       if (statusArray.includes(status)) {
         getTodosQuery = `
         select * from todo where status = '${status}';`;
+        data = await db.all(getTodosQuery);
+        newTodo = snakeToCamel(data);
+        response.send(newTodo);
         break;
       } else {
         response.status(400);
@@ -140,6 +166,9 @@ app.get("/todos/", async (request, response) => {
       if (categoryArray.includes(category)) {
         getTodosQuery = `
         select * from todo where category = '${category}';`;
+        data = await db.all(getTodosQuery);
+        newTodo = snakeToCamel(data);
+        response.send(newTodo);
         break;
       } else {
         response.status(400);
@@ -150,16 +179,18 @@ app.get("/todos/", async (request, response) => {
     case hasCategoryAndPriorityProperty(request.query):
       getTodosQuery = `
         select * from todo where category = '${category}' and priority = '${priority}';`;
+      data = await db.all(getTodosQuery);
+      newTodo = snakeToCamel(data);
+      response.send(newTodo);
       break;
     case hasSearchProperty(request.query):
       getTodosQuery = `
         select * from todo where todo LIKE '%${search_q}%';`;
+      data = await db.all(getTodosQuery);
+      newTodo = snakeToCamel(data);
+      response.send(newTodo);
       break;
   }
-  data = await db.all(getTodosQuery);
-  response.send(
-    data.map((eachState) => convertTodoDbObjectToResponseObject(eachState))
-  );
 });
 
 // second api
@@ -183,21 +214,6 @@ app.get("/agenda/", async (request, response) => {
 
     const todosList = await db.all(getTodosQuery);
 
-    const snakeToCamel = (todosList) => {
-      let newTodosList = [];
-      for (let eachTodo of todosList) {
-        let newObj = {
-          id: eachTodo.id,
-          todo: eachTodo.todo,
-          priority: eachTodo.priority,
-          status: eachTodo.status,
-          category: eachTodo.category,
-          dueDate: eachTodo.due_date,
-        };
-        newTodosList.push(newObj);
-      }
-      return newTodosList;
-    };
     const newTodoList = snakeToCamel(todosList);
     response.send(newTodoList);
   } catch (error) {
@@ -211,11 +227,13 @@ app.get("/agenda/", async (request, response) => {
 app.post("/todos/", async (request, response) => {
   const { id, todo, priority, status, category, dueDate } = request.body;
   const isDateValid = isValid(new Date(dueDate));
+  console.log(isDateValid);
 
   if (
     statusArray.includes(status) &&
     priorityArray.includes(priority) &&
-    categoryArray.includes(category)
+    categoryArray.includes(category) &&
+    isDateValid
   ) {
     const formatDate = format(new Date(dueDate), "yyyy-MM-dd");
     const addTodosQuery = `
