@@ -182,6 +182,22 @@ app.get("/agenda/", async (request, response) => {
     const getTodosQuery = `select * from todo where due_date = '${dueDate}';`;
 
     const todosList = await db.all(getTodosQuery);
+
+    const snakeToCamel = (todosList) => {
+      let newTodosList = [];
+      for (let eachTodo of todosList) {
+        let newObj = {
+          id: eachTodo.id,
+          todo: eachTodo.todo,
+          priority: eachTodo.priority,
+          status: eachTodo.status,
+          category: eachTodo.category,
+          dueDate: eachTodo.due_date,
+        };
+        newTodosList.push(newObj);
+      }
+      return newTodosList;
+    };
     const newTodoList = snakeToCamel(todosList);
     response.send(newTodoList);
   } catch (error) {
@@ -195,35 +211,38 @@ app.get("/agenda/", async (request, response) => {
 app.post("/todos/", async (request, response) => {
   const { id, todo, priority, status, category, dueDate } = request.body;
   const isDateValid = isValid(new Date(dueDate));
-  if (!isDateValid) {
-    response.status(400);
-    response.send("Invalid Due Date");
-  }
-  if (!statusArray.includes(status)) {
-    response.status(400);
-    response.send("Invalid Todo Status");
-  }
-  if (!priorityArray.includes(priority)) {
-    response.status(400);
-    response.send("Invalid Todo Priority");
-  }
-  if (!categoryArray.includes(category)) {
-    response.status(400);
-    response.send("Invalid Todo Category");
-  }
+
   if (
     statusArray.includes(status) &&
     priorityArray.includes(priority) &&
     categoryArray.includes(category)
   ) {
+    const formatDate = format(new Date(dueDate), "yyyy-MM-dd");
     const addTodosQuery = `
   INSERT INTO
     todo (id, todo, priority, status, category, due_date)
   VALUES
-    (${id}, '${todo}', '${priority}', '${status}', '${category}','${dueDate}');`;
+    (${id}, '${todo}', '${priority}', '${status}', '${category}','${formatDate}');`;
 
     await db.run(addTodosQuery);
     response.send("Todo Successfully Added");
+  } else {
+    if (isDateValid === false) {
+      response.status(400);
+      response.send("Invalid Due Date");
+    }
+    if (!statusArray.includes(status)) {
+      response.status(400);
+      response.send("Invalid Todo Status");
+    }
+    if (!priorityArray.includes(priority)) {
+      response.status(400);
+      response.send("Invalid Todo Priority");
+    }
+    if (!categoryArray.includes(category)) {
+      response.status(400);
+      response.send("Invalid Todo Category");
+    }
   }
 });
 
@@ -274,7 +293,7 @@ app.put("/todos/:todoId/", async (request, response) => {
     case category !== undefined:
       if (categoryArray.includes(category)) {
         putTodosQuery = `
-            update todo set priority = '${priority}' where id = ${todoId};`;
+            update todo set category = '${category}' where id = ${todoId};`;
         putData = await db.run(putTodosQuery);
         response.send("Category Updated");
         break;
@@ -313,4 +332,3 @@ app.delete("/todos/:todoId/", async (request, response) => {
 });
 
 module.exports = app;
-
